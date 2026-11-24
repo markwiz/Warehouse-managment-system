@@ -1,7 +1,7 @@
 # Warehouse Management System
 
-Project foundation only: structure, dependencies, configuration and a minimal
-end-to-end wiring (frontend → API → PostgreSQL). No business features yet.
+Foundation (structure, dependencies, configuration, frontend → API → PostgreSQL
+wiring) plus the first feature: product management at `/api/products`.
 
 ## Layout
 
@@ -11,8 +11,11 @@ end-to-end wiring (frontend → API → PostgreSQL). No business features yet.
 │   ├── app/
 │   │   ├── main.py          App factory, CORS, router mounting
 │   │   ├── core/config.py   Pydantic settings (reads .env)
-│   │   ├── db/              SQLAlchemy engine, session dependency, declarative Base
-│   │   ├── api/             router.py + routes/ (one module per feature)
+│   │   ├── db/              SQLAlchemy engine, session dependency, Base, models/ registry
+│   │   ├── api/             router.py + routes/ (HTTP layer, one module per feature)
+│   │   ├── schemas/         Pydantic request/response models (validation)
+│   │   ├── services/        Business rules, owns transactions
+│   │   ├── repositories/    Database queries
 │   │   ├── analytics/       Pandas / NumPy / Scikit-learn / Matplotlib code
 │   │   └── agents/          LangChain model factory + LangGraph graphs
 │   ├── migrations/          Alembic (uses DATABASE_URL and Base.metadata)
@@ -37,16 +40,46 @@ npm install
 npm run dev                              # http://localhost:5173
 ```
 
+Before the first run, apply migrations with `uv run alembic upgrade head` in `backend/`.
 The page shows the API and database health. Useful commands in `backend/`:
 `uv run pytest`, `uv run ruff check .`, `uv run alembic revision --autogenerate -m "..."`,
 `uv run alembic upgrade head`.
 
+If another PostgreSQL already uses port 5432, set `POSTGRES_PORT=5433` in `.env` and
+change the port in `DATABASE_URL` and `TEST_DATABASE_URL` to match.
+
+## Testing
+
+`uv run pytest` runs schema tests (no database) and API/persistence tests against a
+separate test database (`TEST_DATABASE_URL`, created automatically, truncated after
+each test). If PostgreSQL is unreachable, the database tests are skipped and the
+reason is printed.
+
+## Products API
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/api/products` | 201 created · 409 SKU already exists · 422 invalid |
+| `GET` | `/api/products?offset=0&limit=50` | 200 list ordered by id (limit 1–200) |
+| `GET` | `/api/products/{id}` | 200 · 404 |
+| `PATCH` | `/api/products/{id}` | 200 partial update · 404 · 422 |
+
+Rules: the SKU is trimmed and uppercased, must match `^[A-Z0-9][A-Z0-9_-]{0,63}$`,
+is unique (case-insensitive in practice) and cannot be changed after creation.
+`name` is 1–255 characters, `description` is optional (up to 2000 characters),
+and `unit_price` is a non-negative decimal with 2 places.
+
 ## Adding a feature
 
-1. Models in `app/db/` (or a feature package), imported so Alembic sees them.
-2. Pydantic schemas + a router in `app/api/routes/`, registered in `app/api/router.py`.
-3. Analytics or agent logic in `app/analytics/` / `app/agents/`, called from the router.
-4. Frontend API calls in `frontend/src/api/`, data fetched with React Query.
+Follow the product module's layering:
+
+1. ORM model in `app/db/models/`, imported in `app/db/models/__init__.py`, then
+   an Alembic revision.
+2. Pydantic schemas in `app/schemas/`.
+3. Queries in `app/repositories/`, business rules in `app/services/`.
+4. A thin router in `app/api/routes/`, registered in `app/api/router.py`.
+5. Analytics or agent logic in `app/analytics/` / `app/agents/`, called from services.
+6. Frontend API calls in `frontend/src/api/`, data fetched with React Query.
 
 ## Frontend choice: React + TypeScript + Vite
 

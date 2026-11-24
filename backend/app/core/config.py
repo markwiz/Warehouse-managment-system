@@ -23,6 +23,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+psycopg://wms:wms@localhost:5432/wms"
+    # Used only by the test suite; defaults to "<database>_test" on the same server.
+    test_database_url: str | None = None
 
     # LLM (LangChain / LangGraph)
     anthropic_api_key: str | None = None
