@@ -5,7 +5,7 @@ description = "Warehouse management system — backend API"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
-    "fastapi>=0.165.0",
+    "fastapi[standard]>=0.165.0",
     "langchain>=1.5.2",
     "langchain-anthropic>=1.7.12",
     "langgraph>=1.2.24",
